@@ -1,0 +1,53 @@
+# Prometheus Configuration for LumaShield
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'lumashield'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Rule files
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # LumaShield Control Plane
+  - job_name: 'lumashield-control-plane'
+    static_configs:
+      - targets: ['control-plane:8080']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Redis exporter (if using redis_exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # LumaShield Agents (dynamic discovery)
+  # In production, use service discovery (Kubernetes, Consul, etc.)
+  - job_name: 'lumashield-agents'
+    static_configs:
+      - targets: []  # Agents will be discovered dynamically
+    # For Kubernetes:
+    # kubernetes_sd_configs:
+    #   - role: pod
+    #     namespaces:
+    #       names:
+    #         - lumashield
+    # relabel_configs:
+    #   - source_labels: [__meta_kubernetes_pod_label_app]
+    #     regex: lumashield-agent
+    #     action: keep

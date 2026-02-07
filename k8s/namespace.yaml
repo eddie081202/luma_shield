@@ -1,0 +1,8 @@
+# LumaShield Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lumashield
+  labels:
+    app.kubernetes.io/name: lumashield
+    app.kubernetes.io/component: namespace

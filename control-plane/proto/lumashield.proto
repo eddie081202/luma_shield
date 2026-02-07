@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+package lumashield;
+
+option go_package = "github.com/lumashield/control-plane/proto";
+
+// ============================================================================
+// MESSAGES
+// ============================================================================
+
+// Agent represents a LumaShield agent running on a host
+message Agent {
+    string id = 1;              // Unique agent identifier (UUID)
+    string hostname = 2;        // Host machine name
+    string ip_address = 3;      // Agent's IP address
+    string version = 4;         // Agent software version
+    int64 registered_at = 5;    // Unix timestamp of registration
+    AgentStatus status = 6;     // Current status
+}
+
+enum AgentStatus {
+    AGENT_STATUS_UNKNOWN = 0;
+    AGENT_STATUS_ACTIVE = 1;
+    AGENT_STATUS_INACTIVE = 2;
+    AGENT_STATUS_ERROR = 3;
+}
+
+// Rule represents a firewall rule to be distributed to agents
+message Rule {
+    string id = 1;              // Unique rule identifier
+    RuleType type = 2;          // Type of rule
+    string target = 3;          // IP address, CIDR, or pattern
+    RuleAction action = 4;      // What to do when matched
+    string reason = 5;          // Why this rule exists
+    int32 priority = 6;         // Higher = more important
+    int64 created_at = 7;       // Unix timestamp
+    int64 expires_at = 8;       // 0 = never expires
+}
+
+enum RuleType {
+    RULE_TYPE_UNKNOWN = 0;
+    RULE_TYPE_IP_BLOCK = 1;         // Block specific IP
+    RULE_TYPE_CIDR_BLOCK = 2;       // Block IP range
+    RULE_TYPE_RATE_LIMIT = 3;       // Rate limit
+    RULE_TYPE_GEO_BLOCK = 4;        // Block by country
+    RULE_TYPE_PORT_BLOCK = 5;       // Block specific port
+}
+
+enum RuleAction {
+    RULE_ACTION_UNKNOWN = 0;
+    RULE_ACTION_DROP = 1;           // Drop packet silently
+    RULE_ACTION_REJECT = 2;         // Reject with response
+    RULE_ACTION_LOG = 3;            // Log only
+    RULE_ACTION_RATE_LIMIT = 4;     // Apply rate limiting
+}
+
+// Stats reported by agents
+message AgentStats {
+    string agent_id = 1;
+    int64 packets_received = 2;     // Total packets seen
+    int64 packets_passed = 3;       // Packets allowed through
+    int64 packets_dropped = 4;      // Packets dropped
+    int64 bytes_received = 5;       // Total bytes processed
+    int64 bytes_dropped = 6;        // Bytes dropped
+    int64 active_connections = 7;   // Current active connections
+    double cpu_usage = 8;           // Agent CPU usage %
+    double memory_usage = 9;        // Agent memory usage %
+    int64 timestamp = 10;           // When stats were collected
+    map<string, int64> drops_by_rule = 11; // Drops per rule ID
+}
+
+// ============================================================================
+// REQUEST/RESPONSE MESSAGES
+// ============================================================================
+
+// Registration
+message RegisterRequest {
+    Agent agent = 1;
+}
+
+message RegisterResponse {
+    bool success = 1;
+    string message = 2;
+    repeated Rule initial_rules = 3;    // Current rules to apply
+    int64 heartbeat_interval_ms = 4;    // How often to send heartbeat
+}
+
+// Heartbeat
+message HeartbeatRequest {
+    string agent_id = 1;
+    AgentStatus status = 2;
+    int64 timestamp = 3;
+}
+
+message HeartbeatResponse {
+    bool acknowledged = 1;
+    bool should_reconnect = 2;  // Server wants agent to reconnect
+}
+
+// Rule streaming
+message RuleUpdate {
+    UpdateType type = 1;
+    Rule rule = 2;
+}
+
+enum UpdateType {
+    UPDATE_TYPE_UNKNOWN = 0;
+    UPDATE_TYPE_ADD = 1;
+    UPDATE_TYPE_REMOVE = 2;
+    UPDATE_TYPE_MODIFY = 3;
+}
+
+// Stats streaming (agent -> server)
+message StatsReport {
+    AgentStats stats = 1;
+}
+
+// Command from server to agent
+message AgentCommand {
+    CommandType type = 1;
+    map<string, string> parameters = 2;
+}
+
+enum CommandType {
+    COMMAND_TYPE_UNKNOWN = 0;
+    COMMAND_TYPE_RELOAD_CONFIG = 1;
+    COMMAND_TYPE_RESTART = 2;
+    COMMAND_TYPE_UPGRADE = 3;
+    COMMAND_TYPE_DUMP_STATS = 4;
+}
+
+// ============================================================================
+// SERVICES
+// ============================================================================
+
+// ControlPlane service - main interface for agents
+service ControlPlane {
+    // Agent registration - called once when agent starts
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    
+    // Heartbeat - periodic health check
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    
+    // StreamRules - bidirectional streaming for rule updates and stats
+    // Agent sends stats, server sends rule updates
+    rpc StreamRules(stream StatsReport) returns (stream RuleUpdate);
+    
+    // StreamCommands - server can send commands to agents
+    rpc StreamCommands(stream HeartbeatRequest) returns (stream AgentCommand);
+}
+
+// Management service - for dashboard/admin API
+service Management {
+    // Rule management
+    rpc CreateRule(CreateRuleRequest) returns (CreateRuleResponse);
+    rpc DeleteRule(DeleteRuleRequest) returns (DeleteRuleResponse);
+    rpc ListRules(ListRulesRequest) returns (ListRulesResponse);
+    
+    // Agent management
+    rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+    rpc GetAgentStats(GetAgentStatsRequest) returns (GetAgentStatsResponse);
+}
+
+message CreateRuleRequest {
+    Rule rule = 1;
+}
+
+message CreateRuleResponse {
+    bool success = 1;
+    string message = 2;
+    Rule rule = 3;
+}
+
+message DeleteRuleRequest {
+    string rule_id = 1;
+}
+
+message DeleteRuleResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ListRulesRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+    RuleType filter_type = 3;
+}
+
+message ListRulesResponse {
+    repeated Rule rules = 1;
+    string next_page_token = 2;
+    int32 total_count = 3;
+}
+
+message ListAgentsRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+    AgentStatus filter_status = 3;
+}
+
+message ListAgentsResponse {
+    repeated Agent agents = 1;
+    string next_page_token = 2;
+    int32 total_count = 3;
+}
+
+message GetAgentStatsRequest {
+    string agent_id = 1;
+    int64 from_timestamp = 2;
+    int64 to_timestamp = 3;
+}
+
+message GetAgentStatsResponse {
+    repeated AgentStats stats = 1;
+}

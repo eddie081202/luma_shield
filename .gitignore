@@ -1,0 +1,73 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.o
+*.a
+
+# Go
+/control-plane/control-plane
+/control-plane/vendor/
+
+# C++
+/agent/build/
+/agent/*.bpf.o
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+
+# Helm
+/helm/lumashield/charts/
+*.tgz
+
+# Data
+/data/
+redis_data/
+prometheus_data/
+grafana_data/
+
+# Secrets
+*.pem
+*.key
+*.crt
+secrets.yaml
+*-secrets.yaml
+
+# Test
+coverage.out
+coverage.html
+*.test
+
+# Temp
+tmp/
+temp/

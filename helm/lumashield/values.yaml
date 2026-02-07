@@ -1,0 +1,207 @@
+# LumaShield Helm Chart Values
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# =============================================================================
+# Control Plane Configuration
+# =============================================================================
+controlPlane:
+  enabled: true
+  
+  replicaCount: 3
+  
+  image:
+    repository: lumashield/control-plane
+    tag: latest
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    httpPort: 80
+    grpcPort: 50051
+  
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    hosts:
+      - host: api.lumashield.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # Environment variables
+  env:
+    LOG_LEVEL: info
+    LOG_JSON: "true"
+
+# =============================================================================
+# Agent Configuration
+# =============================================================================
+agent:
+  enabled: true
+  
+  image:
+    repository: lumashield/agent
+    tag: latest
+    pullPolicy: Always
+  
+  # Network interface to attach XDP to
+  interface: eth0
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  
+  # Node selector for agent deployment
+  nodeSelector: {}
+  
+  # Tolerations - by default run on all nodes
+  tolerations:
+    - operator: Exists
+  
+  # Environment variables
+  env:
+    LOG_LEVEL: info
+
+# =============================================================================
+# Redis Configuration
+# =============================================================================
+redis:
+  enabled: true
+  
+  # Using Bitnami Redis chart
+  architecture: standalone
+  
+  auth:
+    enabled: false
+  
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# =============================================================================
+# Prometheus Configuration
+# =============================================================================
+prometheus:
+  enabled: true
+  
+  # Using Prometheus community chart
+  server:
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+    
+    retention: "15d"
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  alertmanager:
+    enabled: false
+
+# =============================================================================
+# Grafana Configuration
+# =============================================================================
+grafana:
+  enabled: true
+  
+  # Using Grafana chart
+  adminUser: admin
+  adminPassword: lumashield
+  
+  persistence:
+    enabled: true
+    size: 1Gi
+  
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://{{ .Release.Name }}-prometheus-server
+          isDefault: true
+  
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'lumashield'
+          orgId: 1
+          folder: 'LumaShield'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/lumashield
+
+# =============================================================================
+# Service Account
+# =============================================================================
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# =============================================================================
+# RBAC
+# =============================================================================
+rbac:
+  create: true
+
+# =============================================================================
+# Pod Security
+# =============================================================================
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

@@ -1,0 +1,28 @@
+# LumaShield ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lumashield-config
+  namespace: lumashield
+  labels:
+    app.kubernetes.io/name: lumashield
+    app.kubernetes.io/component: config
+data:
+  redis_addr: "redis:6379"
+  log_level: "info"
+  heartbeat_interval: "30000"
+  stats_interval: "10000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lumashield-secrets
+  namespace: lumashield
+  labels:
+    app.kubernetes.io/name: lumashield
+    app.kubernetes.io/component: secrets
+type: Opaque
+data:
+  # Base64 encoded values - replace with actual secrets
+  # echo -n "your-password" | base64
+  redis_password: ""

@@ -1,0 +1,32 @@
+# LumaShield Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lumashield-api
+  namespace: lumashield
+  labels:
+    app.kubernetes.io/name: lumashield
+    app.kubernetes.io/component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.lumashield.local
+      secretName: lumashield-tls
+  rules:
+    - host: api.lumashield.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: control-plane
+                port:
+                  name: http

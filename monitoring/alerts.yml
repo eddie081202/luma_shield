@@ -1,0 +1,166 @@
+# LumaShield Alerting Rules
+
+groups:
+  # ===========================================================================
+  # Agent Health Alerts
+  # ===========================================================================
+  - name: lumashield-agents
+    rules:
+      - alert: AgentDown
+        expr: up{job="lumashield-agents"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LumaShield Agent is down"
+          description: "Agent {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: AgentHighCPU
+        expr: lumashield_agent_cpu_usage > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent CPU usage is high"
+          description: "Agent {{ $labels.agent_id }} CPU usage is {{ $value }}%"
+
+      - alert: AgentHighMemory
+        expr: lumashield_agent_memory_usage > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent memory usage is high"
+          description: "Agent {{ $labels.agent_id }} memory usage is {{ $value }}%"
+
+      - alert: NoActiveAgents
+        expr: lumashield_active_agents == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active LumaShield agents"
+          description: "There are no active agents connected to the control plane."
+
+  # ===========================================================================
+  # Traffic Alerts
+  # ===========================================================================
+  - name: lumashield-traffic
+    rules:
+      - alert: HighPacketDropRate
+        expr: |
+          rate(lumashield_packets_dropped_total[5m]) / 
+          rate(lumashield_packets_processed_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High packet drop rate detected"
+          description: "Agent {{ $labels.agent_id }} is dropping more than 10% of packets."
+
+      - alert: DDoSAttackDetected
+        expr: rate(lumashield_packets_dropped_total{reason="ddos"}[1m]) > 10000
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Possible DDoS attack detected"
+          description: "Agent {{ $labels.agent_id }} is blocking {{ $value }} packets/sec."
+
+      - alert: UnusualTrafficSpike
+        expr: |
+          rate(lumashield_packets_processed_total[5m]) > 
+          2 * avg_over_time(rate(lumashield_packets_processed_total[5m])[1h:5m])
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual traffic spike detected"
+          description: "Traffic has increased significantly on agent {{ $labels.agent_id }}."
+
+  # ===========================================================================
+  # Control Plane Alerts
+  # ===========================================================================
+  - name: lumashield-control-plane
+    rules:
+      - alert: ControlPlaneDown
+        expr: up{job="lumashield-control-plane"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LumaShield Control Plane is down"
+          description: "The control plane has been unreachable for more than 1 minute."
+
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.99, rate(lumashield_api_latency_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency"
+          description: "99th percentile API latency is {{ $value }}s"
+
+      - alert: HighRuleDistributionLatency
+        expr: histogram_quantile(0.99, rate(lumashield_rule_distribution_latency_seconds_bucket[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rule distribution latency"
+          description: "Rule distribution latency is {{ $value }}s, should be < 100ms"
+
+      - alert: GRPCConnectionsHigh
+        expr: lumashield_grpc_active_connections > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of gRPC connections"
+          description: "There are {{ $value }} active gRPC connections"
+
+  # ===========================================================================
+  # Blacklist Alerts
+  # ===========================================================================
+  - name: lumashield-blacklist
+    rules:
+      - alert: BlacklistSizeHigh
+        expr: lumashield_blacklist_size > 50000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blacklist size is growing"
+          description: "Blacklist contains {{ $value }} entries"
+
+      - alert: BlacklistNearLimit
+        expr: lumashield_blacklist_size > 90000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Blacklist approaching limit"
+          description: "Blacklist contains {{ $value }} entries, limit is 100,000"
+
+  # ===========================================================================
+  # Redis Alerts
+  # ===========================================================================
+  - name: lumashield-redis
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance has been down for more than 1 minute."
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis is using {{ $value | humanizePercentage }} of available memory"
